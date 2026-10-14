@@ -223,6 +223,87 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
                     ]
                 )
             raise NotImplementedError()
+    
+        @property
+        def shape_type(self) -> str:
+            return self._parent._layer.shape_type[self._index]
+
+        @property
+        def area(self) -> float:
+            stype = self.shape_type
+            coords = self.data
+            if stype == "rectangle":
+                return self.width * self.height
+            elif stype == "ellipse":
+                a = self.width / 2.0
+                b = self.height / 2.0
+                return float(np.pi * a * b)
+            elif stype == "polygon":
+                x = coords[:, -1]
+                y = coords[:, -2]
+                return float(
+                    0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+                )
+            return float("nan")
+
+        @property
+        def perimeter(self) -> float:
+            stype = self.shape_type
+            coords = self.data
+            if stype == "rectangle":
+                return float(2 * (self.width + self.height))
+            elif stype == "ellipse":
+                a = self.width / 2.0
+                b = self.height / 2.0
+                return float(
+                    np.pi * (3 * (a + b) - np.sqrt((3 * a + b) * (a + 3 * b)))
+                )
+            elif stype == "polygon":
+                closed_coords = np.vstack([coords, coords[0]])
+                segments = np.diff(closed_coords, axis=0)
+                return float(np.sum(np.linalg.norm(segments, axis=1)))
+            return float("nan")
+
+        @property
+        def length(self) -> float:
+            stype = self.shape_type
+            coords = self.data
+            if stype in ["line", "path"]:
+                segments = np.diff(coords, axis=0)
+                return float(np.sum(np.linalg.norm(segments, axis=1)))
+            return float("nan")
+
+        @property
+        def major_axis(self) -> float:
+            stype = self.shape_type
+            if stype in ["rectangle", "ellipse"]:
+                return float(max(self.width, self.height))
+            elif stype == "polygon":
+                centered = self.data - np.mean(self.data, axis=0)
+                cov = np.cov(centered, rowvar=False)
+                evals = np.sort(np.linalg.eigvalsh(cov))
+                return float(4 * np.sqrt(max(evals[-1], 1e-8)))
+            return float("nan")
+
+        @property
+        def minor_axis(self) -> float:
+            stype = self.shape_type
+            if stype in ["rectangle", "ellipse"]:
+                return float(min(self.width, self.height))
+            elif stype == "polygon":
+                centered = self.data - np.mean(self.data, axis=0)
+                cov = np.cov(centered, rowvar=False)
+                evals = np.sort(np.linalg.eigvalsh(cov))
+                return float(4 * np.sqrt(max(evals[0], 0)))
+            return float("nan")
+
+        @property
+        def circularity(self) -> float:
+            a = self.area
+            p = self.perimeter
+            if p > 0 and not np.isnan(a) and not np.isnan(p):
+                return float((4 * np.pi * a) / (p**2))
+            return float("nan")
 
     def __init__(self, layer: Shapes) -> None:
         self._layer = layer

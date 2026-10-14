@@ -55,6 +55,41 @@ class ROIBase(ABC):
     def height(self, height: float) -> None:
         pass
 
+    @property
+    @abstractmethod
+    def area(self) -> float:
+        raise NotImplementedError()
+
+
+    @property
+    @abstractmethod
+    def perimeter(self) -> float:
+        raise NotImplementedError()
+
+
+    @property
+    @abstractmethod
+    def length(self) -> float:
+        raise NotImplementedError()
+
+
+    @property
+    @abstractmethod
+    def major_axis(self) -> float:
+        raise NotImplementedError()
+
+
+    @property
+    @abstractmethod
+    def minor_axis(self) -> float:
+        raise NotImplementedError()
+
+
+    @property
+    @abstractmethod
+    def circularity(self) -> float:
+        raise NotImplementedError()
+
 
 @dataclass
 class ROI(ROIBase):

@@ -20,7 +20,7 @@ class ROITableModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             return 0
-        return 5
+        return 11
 
     def data(
         self,
@@ -33,14 +33,26 @@ class ROITableModel(QAbstractTableModel):
         ):
             if index.column() == 0:
                 return self._rois[index.row()].name
-            if index.column() == 1:
+            elif index.column() == 1:
                 return self._rois[index.row()].x
-            if index.column() == 2:
+            elif index.column() == 2:
                 return self._rois[index.row()].y
-            if index.column() == 3:
+            elif index.column() == 3:
                 return self._rois[index.row()].width
-            if index.column() == 4:
+            elif index.column() == 4:
                 return self._rois[index.row()].height
+            elif index.column() == 5:
+                return self._rois[index.row()].area
+            elif index.column() == 6:
+                return self._rois[index.row()].perimeter
+            elif index.column() == 7:
+                return self._rois[index.row()].length
+            elif index.column() == 8:
+                return self._rois[index.row()].major_axis
+            elif index.column() == 9:
+                return self._rois[index.row()].minor_axis
+            elif index.column() == 10:
+                return self._rois[index.row()].circularity
         return None
 
     def headerData(
@@ -53,7 +65,7 @@ class ROITableModel(QAbstractTableModel):
             orientation == Qt.Orientation.Horizontal
             and role == Qt.ItemDataRole.DisplayRole
         ):
-            return ("name", "x", "y", "width", "height")[section]
+            return ("name", "x", "y", "width", "height", "area", "perimeter", "length", "major_axis", "minor_axis", "circularity",)[section]
         return None
 
     def setData(

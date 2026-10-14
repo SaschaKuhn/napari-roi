@@ -171,27 +171,41 @@ class ROIWidget(QWidget):
                         y=row["Y"],
                         width=row["W"],
                         height=row["H"],
+                        area=row['Area'],
+                        perimeter=row["Perimeter"],
+                        length=row["Length"],
+                        major_axis=row["Major_Axis"],
+                        minor_axis=row["Minor_Axis"],
+                        circularity=row["Circularity"]
                     )
                     self._roi_layer_accessor.append(roi)
             self._roi_layer.refresh()
             self._refresh_roi_table_widget()
 
     def save_roi_file(self) -> None:
-        assert self._roi_layer_accessor is not None
-        assert self.roi_file is not None
-        df = pd.DataFrame(
-            data={
-                "Name": [roi.name for roi in self._roi_layer_accessor],
-                "X": [roi.x for roi in self._roi_layer_accessor],
-                "Y": [roi.y for roi in self._roi_layer_accessor],
-                "W": [roi.width for roi in self._roi_layer_accessor],
-                "H": [roi.height for roi in self._roi_layer_accessor],
-            }
-        )
-        try:
-            df.to_csv(self.roi_file, index=False)
-        except Exception as e:
-            QMessageBox.warning(self._viewer.window.qt_viewer, "Error", e)
+      assert self._roi_layer_accessor is not None
+      assert self.roi_file is not None
+      df = pd.DataFrame(
+          data={
+              "Name": [roi.name for roi in self._roi_layer_accessor],
+              "X": [roi.x for roi in self._roi_layer_accessor],
+              "Y": [roi.y for roi in self._roi_layer_accessor],
+              "W": [roi.width for roi in self._roi_layer_accessor],
+              "H": [roi.height for roi in self._roi_layer_accessor],
+              "Area": [roi.area for roi in self._roi_layer_accessor],
+              "Perimeter": [roi.perimeter for roi in self._roi_layer_accessor],
+              "Length": [roi.length for roi in self._roi_layer_accessor],
+              "Major_Axis": [roi.major_axis for roi in self._roi_layer_accessor],
+              "Minor_Axis": [roi.minor_axis for roi in self._roi_layer_accessor],
+              "Circularity": [
+                  roi.circularity for roi in self._roi_layer_accessor
+              ],
+          }
+      )
+      try:
+        df.to_csv(self.roi_file, index=False)
+      except Exception as e:
+        QMessageBox.warning(self._viewer.window.qt_viewer, "Error", e)
 
     def get_rois(self) -> MutableSequence[ROIBase]:
         assert self._roi_layer_accessor is not None
