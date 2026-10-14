@@ -2,6 +2,9 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, MutableSequence, Optional, Sequence
 
+import json
+import tifffile
+
 import pandas as pd
 from napari.layers import Shapes
 from napari.utils.events import Event
@@ -34,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class ROIWidget(QWidget):
-    DEFAULT_COLUMN_WIDTHS = (120, 80, 80, 80, 80)
+    DEFAULT_COLUMN_WIDTHS = (120, 80, 80, 80, 80, 80, 80, 80, 90, 90, 80)
     ROI_LAYER_TEXT_COLOR = "red"
 
     def __init__(self, napari_viewer: Viewer, parent: Optional[QWidget] = None) -> None:
@@ -109,30 +112,77 @@ class ROIWidget(QWidget):
         )
         roi_table_widget_layout.addRow("X/Y origin:", self._roi_origin_combo_box)
 
+        # self._save_widget = QWidget(parent=self)
+        # save_widget_layout = QGridLayout()
+        # self._save_widget.setLayout(save_widget_layout)
+        # self._roi_file_line_edit = QLineEdit(parent=self)
+        # self._roi_file_line_edit.setReadOnly(True)
+        # self._roi_file_line_edit.addAction(
+        #     self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
+        #     QLineEdit.ActionPosition.TrailingPosition,
+        # ).triggered.connect(self._on_roi_file_line_edit_browse_action_triggered)
+        # save_widget_layout.addWidget(self._roi_file_line_edit, 0, 0, 1, 2)
+        # self._autosave_roi_file_check_box = QCheckBox(
+        #     "Autosave", parent=self._save_widget
+        # )
+        # self._autosave_roi_file_check_box.stateChanged.connect(
+        #     self._on_autosave_roi_file_check_box_state_changed
+        # )
+        # save_widget_layout.addWidget(self._autosave_roi_file_check_box, 1, 0, 1, 1)
+        # self._save_push_button = QPushButton(
+        #     self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
+        #     "Save",
+        #     parent=self._save_widget,
+        # )
+        # self._save_push_button.clicked.connect(self._on_save_push_button_clicked)
+        # save_widget_layout.addWidget(self._save_push_button, 1, 1, 1, 1)
         self._save_widget = QWidget(parent=self)
-        save_widget_layout = QGridLayout()
+        save_widget_layout = QFormLayout()
         self._save_widget.setLayout(save_widget_layout)
-        self._roi_file_line_edit = QLineEdit(parent=self)
-        self._roi_file_line_edit.setReadOnly(True)
-        self._roi_file_line_edit.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
+
+        # Directory input & browser
+        self._roi_dir_line_edit = QLineEdit(parent=self._save_widget)
+        self._roi_dir_line_edit.textChanged.connect(self._on_roi_dir_line_edit_text_changed)
+        self._roi_dir_line_edit.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
             QLineEdit.ActionPosition.TrailingPosition,
-        ).triggered.connect(self._on_roi_file_line_edit_browse_action_triggered)
-        save_widget_layout.addWidget(self._roi_file_line_edit, 0, 0, 1, 2)
+        ).triggered.connect(self._on_roi_dir_line_edit_browse_action_triggered)
+        save_widget_layout.addRow("Directory:", self._roi_dir_line_edit)
+
+        # Prefix input
+        self._roi_prefix_line_edit = QLineEdit(parent=self._save_widget)
+        self._roi_prefix_line_edit.textChanged.connect(self._on_roi_prefix_line_edit_text_changed)
+        save_widget_layout.addRow("Prefix:", self._roi_prefix_line_edit)
+
+        # Optional export checkboxes layout
+        checkbox_layout = QGridLayout()
+        self._save_rois_json_check_box = QCheckBox("Save ROIs (JSON)", parent=self._save_widget)
+        self._save_rois_json_check_box.stateChanged.connect(self._on_save_rois_json_check_box_state_changed)
+        checkbox_layout.addWidget(self._save_rois_json_check_box, 0, 0)
+
+        self._save_labels_tiff_check_box = QCheckBox("Save Labels (TIFF)", parent=self._save_widget)
+        self._save_labels_tiff_check_box.stateChanged.connect(self._on_save_labels_tiff_check_box_state_changed)
+        checkbox_layout.addWidget(self._save_labels_tiff_check_box, 0, 1)
+        save_widget_layout.addRow(checkbox_layout)
+
+        # Autosave and Save Button layout
+        bottom_save_layout = QGridLayout()
         self._autosave_roi_file_check_box = QCheckBox(
             "Autosave", parent=self._save_widget
         )
         self._autosave_roi_file_check_box.stateChanged.connect(
             self._on_autosave_roi_file_check_box_state_changed
         )
-        save_widget_layout.addWidget(self._autosave_roi_file_check_box, 1, 0, 1, 1)
+        bottom_save_layout.addWidget(self._autosave_roi_file_check_box, 0, 0)
+
         self._save_push_button = QPushButton(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
             "Save",
             parent=self._save_widget,
         )
         self._save_push_button.clicked.connect(self._on_save_push_button_clicked)
-        save_widget_layout.addWidget(self._save_push_button, 1, 1, 1, 1)
+        bottom_save_layout.addWidget(self._save_push_button, 0, 1)
+        save_widget_layout.addRow(bottom_save_layout)
 
         self._update_layout(False)
         self.installEventFilter(self)
@@ -183,29 +233,72 @@ class ROIWidget(QWidget):
             self._refresh_roi_table_widget()
 
     def save_roi_file(self) -> None:
-      assert self._roi_layer_accessor is not None
-      assert self.roi_file is not None
-      df = pd.DataFrame(
-          data={
-              "Name": [roi.name for roi in self._roi_layer_accessor],
-              "X": [roi.x for roi in self._roi_layer_accessor],
-              "Y": [roi.y for roi in self._roi_layer_accessor],
-              "W": [roi.width for roi in self._roi_layer_accessor],
-              "H": [roi.height for roi in self._roi_layer_accessor],
-              "Area": [roi.area for roi in self._roi_layer_accessor],
-              "Perimeter": [roi.perimeter for roi in self._roi_layer_accessor],
-              "Length": [roi.length for roi in self._roi_layer_accessor],
-              "Major_Axis": [roi.major_axis for roi in self._roi_layer_accessor],
-              "Minor_Axis": [roi.minor_axis for roi in self._roi_layer_accessor],
-              "Circularity": [
-                  roi.circularity for roi in self._roi_layer_accessor
-              ],
-          }
-      )
-      try:
-        df.to_csv(self.roi_file, index=False)
-      except Exception as e:
-        QMessageBox.warning(self._viewer.window.qt_viewer, "Error", e)
+        assert self._roi_layer_accessor is not None
+        if not self.roi_dir or not self.roi_prefix.strip():
+            return
+
+        out_dir = Path(self.roi_dir)
+        prefix = self.roi_prefix.strip()
+
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            QMessageBox.warning(self._viewer.window.qt_viewer, "Error", f"Could not create directory:\n{e}")
+            return
+
+        # 1. Save measurement table as prefix_measurements.csv
+        csv_path = out_dir / f"{prefix}_measurements.csv"
+        df = pd.DataFrame(
+            data={
+                "Name": [roi.name for roi in self._roi_layer_accessor],
+                "X": [roi.x for roi in self._roi_layer_accessor],
+                "Y": [roi.y for roi in self._roi_layer_accessor],
+                "W": [roi.width for roi in self._roi_layer_accessor],
+                "H": [roi.height for roi in self._roi_layer_accessor],
+                "Area": [roi.area for roi in self._roi_layer_accessor],
+                "Perimeter": [roi.perimeter for roi in self._roi_layer_accessor],
+                "Length": [roi.length for roi in self._roi_layer_accessor],
+                "Major_Axis": [roi.major_axis for roi in self._roi_layer_accessor],
+                "Minor_Axis": [roi.minor_axis for roi in self._roi_layer_accessor],
+                "Circularity": [
+                    roi.circularity for roi in self._roi_layer_accessor
+                ],
+            }
+        )
+        try:
+            df.to_csv(csv_path, index=False)
+        except Exception as e:
+            QMessageBox.warning(self._viewer.window.qt_viewer, "Error", f"Could not save measurements CSV:\n{e}")
+
+        # 2. Optionally save ROI shapes and locations as prefix_rois.json
+        if self.save_rois_json:
+            json_path = out_dir / f"{prefix}_rois.json"
+            rois_data = []
+            for i in range(len(self._roi_layer_accessor)):
+                item = self._roi_layer_accessor[i]
+                rois_data.append({
+                    "name": item.name,
+                    "shape_type": item.shape_type,
+                    "data": item.data.tolist(),
+                    "x": item.x,
+                    "y": item.y,
+                    "width": item.width,
+                    "height": item.height,
+                })
+            try:
+                with open(json_path, "w") as f:
+                    json.dump(rois_data, f, indent=2)
+            except Exception as e:
+                QMessageBox.warning(self._viewer.window.qt_viewer, "Error", f"Could not save ROIs JSON:\n{e}")
+
+        # 3. Optionally save label image as prefix_labels.tiff
+        if self.save_labels_tiff and self._roi_layer is not None:
+            tiff_path = out_dir / f"{prefix}_labels.tiff"
+            try:
+                labels = self._roi_layer.to_labels()
+                tifffile.imwrite(str(tiff_path), labels)
+            except Exception as e:
+                QMessageBox.warning(self._viewer.window.qt_viewer, "Error", f"Could not save label image TIFF:\n{e}")
 
     def get_rois(self) -> MutableSequence[ROIBase]:
         assert self._roi_layer_accessor is not None
@@ -352,15 +445,52 @@ class ROIWidget(QWidget):
                     self.load_roi_file()
 
     def _on_autosave_roi_file_check_box_state_changed(
-        self, state: Qt.CheckState
+        self, state: int
     ) -> None:
-        self.autosave_roi_file = state == Qt.CheckState.Checked
+        self.autosave_roi_file = self._autosave_roi_file_check_box.isChecked()
         self._refresh_save_widget()
-        if self._initialized and state == Qt.CheckState.Checked:
+        if self._initialized and self.autosave_roi_file:
             self.save_roi_file()
 
     def _on_save_push_button_clicked(self, checked: bool) -> None:
         self.save_roi_file()
+    
+    def _on_roi_dir_line_edit_text_changed(self, text: str) -> None:
+        self.roi_dir = Path(text) if text.strip() else None
+        self._refresh_save_widget()
+        if self._initialized and self.autosave_roi_file:
+            self.save_roi_file()
+
+    def _on_roi_prefix_line_edit_text_changed(self, text: str) -> None:
+        self.roi_prefix = text
+        self._refresh_save_widget()
+        if self._initialized and self.autosave_roi_file:
+            self.save_roi_file()
+
+    def _on_save_rois_json_check_box_state_changed(self, state: int) -> None:
+        self.save_rois_json = self._save_rois_json_check_box.isChecked()
+        self._refresh_save_widget()
+        if self._initialized and self.autosave_roi_file:
+            self.save_roi_file()
+
+    def _on_save_labels_tiff_check_box_state_changed(self, state: int) -> None:
+        self.save_labels_tiff = self._save_labels_tiff_check_box.isChecked()
+        self._refresh_save_widget()
+        if self._initialized and self.autosave_roi_file:
+            self.save_roi_file()
+
+    def _on_roi_dir_line_edit_browse_action_triggered(self, checked: bool) -> None:
+        current_dir = str(self.roi_dir) if self.roi_dir and self.roi_dir.is_dir() else str(Path.home())
+        dir_path = QFileDialog.getExistingDirectory(
+            parent=self,
+            caption="Select Output Directory",
+            directory=current_dir,
+        )
+        if dir_path:
+            self.roi_dir = Path(dir_path)
+            self._refresh_save_widget()
+            if self._initialized and self.autosave_roi_file:
+                self.save_roi_file()
 
     def _on_roi_layer_data_changed(self, event: Event) -> None:
         self._refresh_roi_table_widget()
@@ -434,16 +564,26 @@ class ROIWidget(QWidget):
                 self._roi_origin_combo_box.setCurrentText(str(self.roi_origin))
 
     def _refresh_save_widget(self) -> None:
-        self._roi_file_line_edit.setEnabled(not self.autosave_roi_file)
-        with QSignalBlocker(self._roi_file_line_edit):
-            self._roi_file_line_edit.setText(str(self.roi_file or ""))
-        self._autosave_roi_file_check_box.setEnabled(self.roi_file is not None)
-        if self._roi_layer_accessor is not None:
-            with QSignalBlocker(self._autosave_roi_file_check_box):
-                self._autosave_roi_file_check_box.setChecked(self.autosave_roi_file)
-        self._save_push_button.setEnabled(
-            self.roi_file is not None and not self.autosave_roi_file
-        )
+        is_autosave = self.autosave_roi_file
+        self._roi_dir_line_edit.setEnabled(not is_autosave)
+        self._roi_prefix_line_edit.setEnabled(not is_autosave)
+        self._save_rois_json_check_box.setEnabled(not is_autosave)
+        self._save_labels_tiff_check_box.setEnabled(not is_autosave)
+
+        with QSignalBlocker(self._roi_dir_line_edit):
+            self._roi_dir_line_edit.setText(str(self.roi_dir) if self.roi_dir is not None else "")
+        with QSignalBlocker(self._roi_prefix_line_edit):
+            self._roi_prefix_line_edit.setText(self.roi_prefix)
+        with QSignalBlocker(self._save_rois_json_check_box):
+            self._save_rois_json_check_box.setChecked(self.save_rois_json)
+        with QSignalBlocker(self._save_labels_tiff_check_box):
+            self._save_labels_tiff_check_box.setChecked(self.save_labels_tiff)
+
+        has_valid_target = self.roi_dir is not None and bool(self.roi_prefix.strip())
+        self._autosave_roi_file_check_box.setEnabled(has_valid_target)
+        with QSignalBlocker(self._autosave_roi_file_check_box):
+            self._autosave_roi_file_check_box.setChecked(self.autosave_roi_file)
+        self._save_push_button.setEnabled(has_valid_target and not is_autosave)
 
     def _create_roi_name(self) -> str:
         assert self.new_roi_name is not None
@@ -566,3 +706,52 @@ class ROIWidget(QWidget):
     def current_roi_name(self, current_roi_name: str) -> None:
         assert self._roi_layer_accessor is not None
         self._roi_layer_accessor.current_roi_name = current_roi_name
+
+
+    @property
+    def roi_dir(self) -> Optional[Path]:
+        if self._roi_layer_accessor is not None:
+            return self._roi_layer_accessor.roi_dir
+        return None
+
+    @roi_dir.setter
+    def roi_dir(self, roi_dir: Optional[Path]) -> None:
+        assert self._roi_layer_accessor is not None
+        self._roi_layer_accessor.roi_dir = roi_dir
+        self._roi_dir_line_edit.setText(str(roi_dir) if roi_dir is not None else "")
+
+    @property
+    def roi_prefix(self) -> str:
+        if self._roi_layer_accessor is not None:
+            return self._roi_layer_accessor.roi_prefix
+        return ""
+
+    @roi_prefix.setter
+    def roi_prefix(self, roi_prefix: str) -> None:
+        assert self._roi_layer_accessor is not None
+        self._roi_layer_accessor.roi_prefix = roi_prefix
+        self._roi_prefix_line_edit.setText(roi_prefix)
+
+    @property
+    def save_rois_json(self) -> bool:
+        if self._roi_layer_accessor is not None:
+            return self._roi_layer_accessor.save_rois_json
+        return False
+
+    @save_rois_json.setter
+    def save_rois_json(self, save_rois_json: bool) -> None:
+        assert self._roi_layer_accessor is not None
+        self._roi_layer_accessor.save_rois_json = save_rois_json
+        self._save_rois_json_check_box.setChecked(save_rois_json)
+
+    @property
+    def save_labels_tiff(self) -> bool:
+        if self._roi_layer_accessor is not None:
+            return self._roi_layer_accessor.save_labels_tiff
+        return False
+
+    @save_labels_tiff.setter
+    def save_labels_tiff(self, save_labels_tiff: bool) -> None:
+        assert self._roi_layer_accessor is not None
+        self._roi_layer_accessor.save_labels_tiff = save_labels_tiff
+        self._save_labels_tiff_check_box.setChecked(save_labels_tiff)

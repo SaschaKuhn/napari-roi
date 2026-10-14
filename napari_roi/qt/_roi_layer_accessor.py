@@ -17,14 +17,22 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
     NEW_ROI_WIDTH_METADATA_KEY = "new_roi_width"
     NEW_ROI_HEIGHT_METADATA_KEY = "new_roi_height"
     ROI_ORIGIN_METADATA_KEY = "roi_origin"
-    ROI_FILE_METADATA_KEY = "roi_file"
+    
+    # New metadata keys for separate directory, prefix, and export options
+    ROI_DIR_METADATA_KEY = "roi_dir"
+    ROI_PREFIX_METADATA_KEY = "roi_prefix"
+    SAVE_ROIS_JSON_METADATA_KEY = "save_rois_json"
+    SAVE_LABELS_TIFF_METADATA_KEY = "save_labels_tiff"
     AUTOSAVE_ROI_FILE_METADATA_KEY = "autosave_roi_file"
 
     DEFAULT_NEW_ROI_NAME = "New ROI"
     DEFAULT_NEW_ROI_WIDTH = 100.0
     DEFAULT_NEW_ROI_HEIGHT = 100.0
     DEFAULT_ROI_ORIGIN = ROIOrigin.CENTER
-    DEFAULT_ROI_FILE = ""
+    DEFAULT_ROI_DIR = ""
+    DEFAULT_ROI_PREFIX = ""
+    DEFAULT_SAVE_ROIS_JSON = False
+    DEFAULT_SAVE_LABELS_TIFF = False
     DEFAULT_AUTOSAVE_ROI_FILE = False
 
     class ItemAccessor(ROIBase):
@@ -316,17 +324,21 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
         if self.NEW_ROI_WIDTH_METADATA_KEY not in layer.metadata:
             layer.metadata[self.NEW_ROI_WIDTH_METADATA_KEY] = self.DEFAULT_NEW_ROI_WIDTH
         if self.NEW_ROI_HEIGHT_METADATA_KEY not in layer.metadata:
-            layer.metadata[
-                self.NEW_ROI_HEIGHT_METADATA_KEY
-            ] = self.DEFAULT_NEW_ROI_HEIGHT
+            layer.metadata[self.NEW_ROI_HEIGHT_METADATA_KEY] = self.DEFAULT_NEW_ROI_HEIGHT
         if self.ROI_ORIGIN_METADATA_KEY not in layer.metadata:
             layer.metadata[self.ROI_ORIGIN_METADATA_KEY] = self.DEFAULT_ROI_ORIGIN
-        if self.ROI_FILE_METADATA_KEY not in layer.metadata:
-            layer.metadata[self.ROI_FILE_METADATA_KEY] = self.DEFAULT_ROI_FILE
+        
+        # Initialize new metadata keys
+        if self.ROI_DIR_METADATA_KEY not in layer.metadata:
+            layer.metadata[self.ROI_DIR_METADATA_KEY] = self.DEFAULT_ROI_DIR
+        if self.ROI_PREFIX_METADATA_KEY not in layer.metadata:
+            layer.metadata[self.ROI_PREFIX_METADATA_KEY] = self.DEFAULT_ROI_PREFIX
+        if self.SAVE_ROIS_JSON_METADATA_KEY not in layer.metadata:
+            layer.metadata[self.SAVE_ROIS_JSON_METADATA_KEY] = self.DEFAULT_SAVE_ROIS_JSON
+        if self.SAVE_LABELS_TIFF_METADATA_KEY not in layer.metadata:
+            layer.metadata[self.SAVE_LABELS_TIFF_METADATA_KEY] = self.DEFAULT_SAVE_LABELS_TIFF
         if self.AUTOSAVE_ROI_FILE_METADATA_KEY not in layer.metadata:
-            layer.metadata[
-                self.AUTOSAVE_ROI_FILE_METADATA_KEY
-            ] = self.DEFAULT_AUTOSAVE_ROI_FILE
+            layer.metadata[self.AUTOSAVE_ROI_FILE_METADATA_KEY] = self.DEFAULT_AUTOSAVE_ROI_FILE
 
     def insert(self, index: int, roi: ROIBase) -> None:
         ROILayerAccessor.ItemAccessor(self, index).insert(roi)
@@ -392,13 +404,37 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
         self._layer.metadata[self.ROI_ORIGIN_METADATA_KEY] = str(roi_origin)
 
     @property
-    def roi_file(self) -> Optional[Path]:
-        roi_file_str = self._layer.metadata[self.ROI_FILE_METADATA_KEY]
-        return Path(roi_file_str) if roi_file_str else None
+    def roi_dir(self) -> Optional[Path]:
+        dir_str = self._layer.metadata[self.ROI_DIR_METADATA_KEY]
+        return Path(dir_str) if dir_str else None
 
-    @roi_file.setter
-    def roi_file(self, roi_file: Optional[Path]) -> None:
-        self._layer.metadata[self.ROI_FILE_METADATA_KEY] = str(roi_file or "")
+    @roi_dir.setter
+    def roi_dir(self, roi_dir: Optional[Path]) -> None:
+        self._layer.metadata[self.ROI_DIR_METADATA_KEY] = str(roi_dir or "")
+
+    @property
+    def roi_prefix(self) -> str:
+        return self._layer.metadata[self.ROI_PREFIX_METADATA_KEY]
+
+    @roi_prefix.setter
+    def roi_prefix(self, roi_prefix: str) -> None:
+        self._layer.metadata[self.ROI_PREFIX_METADATA_KEY] = roi_prefix or ""
+
+    @property
+    def save_rois_json(self) -> bool:
+        return self._layer.metadata[self.SAVE_ROIS_JSON_METADATA_KEY]
+
+    @save_rois_json.setter
+    def save_rois_json(self, save_rois_json: bool) -> None:
+        self._layer.metadata[self.SAVE_ROIS_JSON_METADATA_KEY] = save_rois_json
+
+    @property
+    def save_labels_tiff(self) -> bool:
+        return self._layer.metadata[self.SAVE_LABELS_TIFF_METADATA_KEY]
+
+    @save_labels_tiff.setter
+    def save_labels_tiff(self, save_labels_tiff: bool) -> None:
+        self._layer.metadata[self.SAVE_LABELS_TIFF_METADATA_KEY] = save_labels_tiff
 
     @property
     def autosave_roi_file(self) -> bool:
