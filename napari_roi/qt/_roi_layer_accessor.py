@@ -99,6 +99,15 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
             self._parent._layer.data = layer_data
 
         @property
+        def _world_data(self) -> np.ndarray:
+            return self.data[:, -2:] * self._parent.pixel_scale      # (y, x) in physical units
+
+        @property
+        def _world_size(self) -> tuple[float, float]:
+            sy, sx = self._parent.pixel_scale
+            return self.width * sx, self.height * sy                  # (w, h)
+
+        @property
         def features(self) -> pd.Series:
             layer_features = features_to_pandas_dataframe(self._parent._layer.features)
             return layer_features.iloc[self._index]
@@ -239,69 +248,56 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
         @property
         def area(self) -> float:
             stype = self.shape_type
-            coords = self.data
+            w, h = self._world_size
             if stype == "rectangle":
-                return self.width * self.height
-            elif stype == "ellipse":
-                a = self.width / 2.0
-                b = self.height / 2.0
-                return float(np.pi * a * b)
-            elif stype == "polygon":
-                x = coords[:, -1]
-                y = coords[:, -2]
-                return float(
-                    0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
-                )
+                return w * h
+            if stype == "ellipse":
+                return float(np.pi * (w / 2) * (h / 2))
+            if stype == "polygon":
+                y, x = self._world_data[:, 0], self._world_data[:, 1]
+                return float(0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
             return float("nan")
 
         @property
         def perimeter(self) -> float:
             stype = self.shape_type
-            coords = self.data
+            w, h = self._world_size
             if stype == "rectangle":
-                return float(2 * (self.width + self.height))
-            elif stype == "ellipse":
-                a = self.width / 2.0
-                b = self.height / 2.0
-                return float(
-                    np.pi * (3 * (a + b) - np.sqrt((3 * a + b) * (a + 3 * b)))
-                )
-            elif stype == "polygon":
-                closed_coords = np.vstack([coords, coords[0]])
-                segments = np.diff(closed_coords, axis=0)
-                return float(np.sum(np.linalg.norm(segments, axis=1)))
+                return float(2 * (w + h))
+            if stype == "ellipse":
+                a, b = w / 2, h / 2
+                return float(np.pi * (3 * (a + b) - np.sqrt((3 * a + b) * (a + 3 * b))))
+            if stype == "polygon":
+                c = self._world_data
+                c = np.vstack([c, c[0]])
+                return float(np.linalg.norm(np.diff(c, axis=0), axis=1).sum())
             return float("nan")
 
         @property
         def length(self) -> float:
-            stype = self.shape_type
-            coords = self.data
-            if stype in ["line", "path"]:
-                segments = np.diff(coords, axis=0)
-                return float(np.sum(np.linalg.norm(segments, axis=1)))
+            if self.shape_type in ("line", "path"):
+                return float(np.linalg.norm(np.diff(self._world_data, axis=0), axis=1).sum())
             return float("nan")
 
         @property
         def major_axis(self) -> float:
             stype = self.shape_type
-            if stype in ["rectangle", "ellipse"]:
-                return float(max(self.width, self.height))
-            elif stype == "polygon":
-                centered = self.data - np.mean(self.data, axis=0)
-                cov = np.cov(centered, rowvar=False)
-                evals = np.sort(np.linalg.eigvalsh(cov))
+            if stype in ("rectangle", "ellipse"):
+                return float(max(self._world_size))
+            if stype == "polygon":
+                c = self._world_data - self._world_data.mean(axis=0)
+                evals = np.sort(np.linalg.eigvalsh(np.cov(c, rowvar=False)))
                 return float(4 * np.sqrt(max(evals[-1], 1e-8)))
             return float("nan")
 
         @property
         def minor_axis(self) -> float:
             stype = self.shape_type
-            if stype in ["rectangle", "ellipse"]:
-                return float(min(self.width, self.height))
-            elif stype == "polygon":
-                centered = self.data - np.mean(self.data, axis=0)
-                cov = np.cov(centered, rowvar=False)
-                evals = np.sort(np.linalg.eigvalsh(cov))
+            if stype in ("rectangle", "ellipse"):
+                return float(min(self._world_size))
+            if stype == "polygon":
+                c = self._world_data - self._world_data.mean(axis=0)
+                evals = np.sort(np.linalg.eigvalsh(np.cov(c, rowvar=False)))
                 return float(4 * np.sqrt(max(evals[0], 0)))
             return float("nan")
 
@@ -461,3 +457,17 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
             [current_roi_name] if current_roi_name is not None else []
         )
         self._layer.current_properties = layer_current_properties
+
+    @property
+    def pixel_scale(self) -> np.ndarray:
+        """World units per pixel for the (y, x) axes."""
+        return np.asarray(self._layer.scale[-2:], dtype=float)
+
+    @property
+    def unit(self) -> str:
+        units = getattr(self._layer, "units", None)  # napari >= 0.5
+        if units:
+            u = units[-1]
+            s = f"{u:~P}" if hasattr(u, "dimensionality") else str(u)  # pint -> "µm"
+            return "px" if s in ("pixel", "px") else s
+        return "px"

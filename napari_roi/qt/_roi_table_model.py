@@ -65,7 +65,11 @@ class ROITableModel(QAbstractTableModel):
             orientation == Qt.Orientation.Horizontal
             and role == Qt.ItemDataRole.DisplayRole
         ):
-            return ("name", "x", "y", "width", "height", "area", "perimeter", "length", "major_axis", "minor_axis", "circularity",)[section]
+            u = getattr(self._rois, "unit", "px")
+            headers = ("name", "x (px)", "y (px)", "width (px)", "height (px)",
+                        f"area ({u}²)", f"perimeter ({u})", f"length ({u})",
+                        f"major_axis ({u})", f"minor_axis ({u})", "circularity")
+            return headers[section]
         return None
 
     def setData(

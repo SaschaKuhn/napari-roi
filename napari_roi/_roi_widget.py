@@ -248,6 +248,7 @@ class ROIWidget(QWidget):
 
         # 1. Save measurement table as prefix_measurements.csv
         csv_path = out_dir / f"{prefix}_measurements.csv"
+        unit = self._roi_layer_accessor.unit
         df = pd.DataFrame(
             data={
                 "Name": [roi.name for roi in self._roi_layer_accessor],
@@ -255,11 +256,11 @@ class ROIWidget(QWidget):
                 "Y": [roi.y for roi in self._roi_layer_accessor],
                 "W": [roi.width for roi in self._roi_layer_accessor],
                 "H": [roi.height for roi in self._roi_layer_accessor],
-                "Area": [roi.area for roi in self._roi_layer_accessor],
-                "Perimeter": [roi.perimeter for roi in self._roi_layer_accessor],
-                "Length": [roi.length for roi in self._roi_layer_accessor],
-                "Major_Axis": [roi.major_axis for roi in self._roi_layer_accessor],
-                "Minor_Axis": [roi.minor_axis for roi in self._roi_layer_accessor],
+                f"Area ({unit}^2)": [roi.area for roi in self._roi_layer_accessor],
+                f"Perimeter ({unit})": [roi.perimeter for roi in self._roi_layer_accessor],
+                f"Length ({unit})": [roi.length for roi in self._roi_layer_accessor],
+                f"Major_Axis ({unit})": [roi.major_axis for roi in self._roi_layer_accessor],
+                f"Minor_Axis ({unit})": [roi.minor_axis for roi in self._roi_layer_accessor],
                 "Circularity": [
                     roi.circularity for roi in self._roi_layer_accessor
                 ],
@@ -325,17 +326,15 @@ class ROIWidget(QWidget):
     def _on_roi_layer_changed(self, old_roi_layer: Optional[Shapes]) -> None:
         if old_roi_layer is not None:
             old_roi_layer.events.data.disconnect(self._on_roi_layer_data_changed)
-            old_roi_layer.events.properties.disconnect(
-                self._on_roi_layer_properties_changed
-            )
+            old_roi_layer.events.scale.disconnect(self._on_roi_layer_data_changed)
+            old_roi_layer.events.properties.disconnect(self._on_roi_layer_properties_changed)
             old_roi_layer.mouse_drag_callbacks.remove(self._on_roi_layer_mouse_drag)
         if self._roi_layer is not None:
             self._roi_layer_accessor = ROILayerAccessor(self._roi_layer)
             self._roi_table_model = ROITableModel(self._roi_layer_accessor)
             self._roi_layer.events.data.connect(self._on_roi_layer_data_changed)
-            self._roi_layer.events.properties.connect(
-                self._on_roi_layer_properties_changed
-            )
+            self._roi_layer.events.scale.connect(self._on_roi_layer_data_changed)
+            self._roi_layer.events.properties.connect(self._on_roi_layer_properties_changed)
             self._roi_layer.mouse_drag_callbacks.append(self._on_roi_layer_mouse_drag)
             self._roi_layer.text = ROILayerAccessor.ROI_NAME_FEATURES_KEY
             self._roi_layer.text.color = self.ROI_LAYER_TEXT_COLOR  # type: ignore
