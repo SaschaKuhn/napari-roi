@@ -2,7 +2,7 @@ from typing import Any, MutableSequence, Optional, Sequence
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QObject, Qt
 
-from .. import ROI, ROIBase
+from .. import ROIBase
 
 
 class ROITableModel(QAbstractTableModel):
@@ -137,16 +137,16 @@ class ROITableModel(QAbstractTableModel):
             )
         return Qt.ItemFlag.NoItemFlags
 
-    def insertRows(
-        self, row: int, count: int, parent: QModelIndex = QModelIndex()
-    ) -> bool:
-        if 0 <= row <= self.rowCount() and count > 0 and not parent.isValid():
-            self.beginInsertRows(parent, row, row + count - 1)
-            for i in range(row, row + count):
-                self._rois.insert(i, ROI())
-            self.endInsertRows()
-            return True
-        return False
+    # def insertRows(
+    #     self, row: int, count: int, parent: QModelIndex = QModelIndex()
+    # ) -> bool:
+    #     if 0 <= row <= self.rowCount() and count > 0 and not parent.isValid():
+    #         self.beginInsertRows(parent, row, row + count - 1)
+    #         for i in range(row, row + count):
+    #             self._rois.insert(i, ROI())
+    #         self.endInsertRows()
+    #         return True
+    #     return False
 
     def removeRows(
         self, row: int, count: int, parent: QModelIndex = QModelIndex()
