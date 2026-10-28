@@ -215,6 +215,8 @@ class ROIWidget(QWidget):
                 rois_data.append({
                     "name": item.name,
                     "shape_type": item.shape_type,
+                    "scale": self._roi_layer_accessor.pixel_scale.tolist(),
+                    "unit": self._roi_layer_accessor.unit,
                     "data": item.data.tolist(),
                 })
             try:
