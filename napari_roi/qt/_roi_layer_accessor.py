@@ -34,6 +34,7 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
     DEFAULT_SAVE_ROIS_JSON = False
     DEFAULT_SAVE_LABELS_TIFF = False
     DEFAULT_AUTOSAVE_ROI_FILE = False
+    _last_roi_dir: str = ""
 
     class ItemAccessor(ROIBase):
         def __init__(self, parent: "ROILayerAccessor", index: int) -> None:
@@ -341,7 +342,9 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
         
         # Initialize new metadata keys
         if self.ROI_DIR_METADATA_KEY not in layer.metadata:
-            layer.metadata[self.ROI_DIR_METADATA_KEY] = self.DEFAULT_ROI_DIR
+            layer.metadata[self.ROI_DIR_METADATA_KEY] = (
+                ROILayerAccessor._last_roi_dir or self.DEFAULT_ROI_DIR
+            )
         if self.ROI_PREFIX_METADATA_KEY not in layer.metadata:
             layer.metadata[self.ROI_PREFIX_METADATA_KEY] = self.DEFAULT_ROI_PREFIX
         if self.SAVE_ROIS_JSON_METADATA_KEY not in layer.metadata:
@@ -422,6 +425,8 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
     @roi_dir.setter
     def roi_dir(self, roi_dir: Optional[Path]) -> None:
         self._layer.metadata[self.ROI_DIR_METADATA_KEY] = str(roi_dir or "")
+        if roi_dir:
+            ROILayerAccessor._last_roi_dir = str(roi_dir)
 
     @property
     def roi_prefix(self) -> str:
