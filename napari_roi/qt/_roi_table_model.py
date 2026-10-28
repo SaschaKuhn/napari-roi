@@ -20,7 +20,7 @@ class ROITableModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             return 0
-        return 11
+        return 7
 
     def data(
         self,
@@ -31,28 +31,18 @@ class ROITableModel(QAbstractTableModel):
             Qt.ItemDataRole.DisplayRole,
             Qt.ItemDataRole.EditRole,
         ):
-            if index.column() == 0:
-                return self._rois[index.row()].name
-            elif index.column() == 1:
-                return self._rois[index.row()].x
-            elif index.column() == 2:
-                return self._rois[index.row()].y
-            elif index.column() == 3:
-                return self._rois[index.row()].width
-            elif index.column() == 4:
-                return self._rois[index.row()].height
-            elif index.column() == 5:
-                return self._rois[index.row()].area
-            elif index.column() == 6:
-                return self._rois[index.row()].perimeter
-            elif index.column() == 7:
-                return self._rois[index.row()].length
-            elif index.column() == 8:
-                return self._rois[index.row()].major_axis
-            elif index.column() == 9:
-                return self._rois[index.row()].minor_axis
-            elif index.column() == 10:
-                return self._rois[index.row()].circularity
+            row = self._rois[index.row()]
+            columns = (
+                lambda: row.name,
+                lambda: row.area,
+                lambda: row.perimeter,
+                lambda: row.length,
+                lambda: row.major_axis,
+                lambda: row.minor_axis,
+                lambda: row.circularity,
+            )
+            if 0 <= index.column() < len(columns):
+                return columns[index.column()]()
         return None
 
     def headerData(
@@ -66,7 +56,7 @@ class ROITableModel(QAbstractTableModel):
             and role == Qt.ItemDataRole.DisplayRole
         ):
             u = getattr(self._rois, "unit", "px")
-            headers = ("name", "x (px)", "y (px)", "width (px)", "height (px)",
+            headers = ("name", 
                         f"area ({u}²)", f"perimeter ({u})", f"length ({u})",
                         f"major_axis ({u})", f"minor_axis ({u})", "circularity")
             return headers[section]
@@ -78,50 +68,23 @@ class ROITableModel(QAbstractTableModel):
         value: Any,
         role: Qt.ItemDataRole = Qt.ItemDataRole.EditRole,
     ) -> bool:
-        if 0 <= index.row() < self.rowCount() and role == Qt.ItemDataRole.EditRole:
-            if index.column() == 0:
-                str_value = str(value).strip()
-                if len(str_value) > 0 and not any(
-                    roi.name == str_value and i != index.row()
-                    for i, roi in enumerate(self._rois)
-                ):
-                    self._rois[index.row()].name = str_value
-                else:
-                    return False
-            elif index.column() == 1:
-                try:
-                    self._rois[index.row()].x = float(value)
-                except ValueError:
-                    return False
-            elif index.column() == 2:
-                try:
-                    self._rois[index.row()].y = float(value)
-                except ValueError:
-                    return False
-            elif index.column() == 3:
-                try:
-                    float_value = float(value)
-                except ValueError:
-                    return False
-                if float_value > 0:
-                    self._rois[index.row()].width = float_value
-                else:
-                    return False
-            elif index.column() == 4:
-                try:
-                    float_value = float(value)
-                except ValueError:
-                    return False
-                if float_value > 0:
-                    self._rois[index.row()].height = float_value
-                else:
-                    return False
-            self.dataChanged.emit(
-                self.createIndex(index.row(), index.column()),
-                self.createIndex(index.row(), index.column()),
-                [Qt.ItemDataRole.EditRole],
-            )
-            return True
+        if (
+            0 <= index.row() < self.rowCount()
+            and role == Qt.ItemDataRole.EditRole
+            and index.column() == 0
+        ):
+            str_value = str(value).strip()
+            if len(str_value) > 0 and not any(
+                roi.name == str_value and i != index.row()
+                for i, roi in enumerate(self._rois)
+            ):
+                self._rois[index.row()].name = str_value
+                self.dataChanged.emit(
+                    self.createIndex(index.row(), 0),
+                    self.createIndex(index.row(), 0),
+                    [Qt.ItemDataRole.EditRole],
+                )
+                return True
         return False
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
@@ -129,13 +92,14 @@ class ROITableModel(QAbstractTableModel):
             0 <= index.row() < self.rowCount()
             and 0 <= index.column() < self.columnCount()
         ):
-            return (
+            flags = (
                 Qt.ItemFlag.ItemIsSelectable
-                | Qt.ItemFlag.ItemIsEditable
                 | Qt.ItemFlag.ItemIsEnabled
                 | Qt.ItemFlag.ItemNeverHasChildren
             )
-        return Qt.ItemFlag.NoItemFlags
+            if index.column() == 0:
+                flags |= Qt.ItemFlag.ItemIsEditable
+            return flags
 
     # def insertRows(
     #     self, row: int, count: int, parent: QModelIndex = QModelIndex()

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class ROIWidget(QWidget):
-    DEFAULT_COLUMN_WIDTHS = (120, 80, 80, 80, 80, 80, 80, 80, 90, 90, 80)
+    DEFAULT_COLUMN_WIDTHS = (120, 80, 80, 80, 90, 90, 80)
     ROI_LAYER_TEXT_COLOR = "red"
 
     def __init__(self, napari_viewer: Viewer, parent: Optional[QWidget] = None) -> None:
@@ -252,10 +252,6 @@ class ROIWidget(QWidget):
         df = pd.DataFrame(
             data={
                 "Name": [roi.name for roi in self._roi_layer_accessor],
-                "X": [roi.x for roi in self._roi_layer_accessor],
-                "Y": [roi.y for roi in self._roi_layer_accessor],
-                "W": [roi.width for roi in self._roi_layer_accessor],
-                "H": [roi.height for roi in self._roi_layer_accessor],
                 f"Area ({unit}^2)": [roi.area for roi in self._roi_layer_accessor],
                 f"Perimeter ({unit})": [roi.perimeter for roi in self._roi_layer_accessor],
                 f"Length ({unit})": [roi.length for roi in self._roi_layer_accessor],
@@ -281,10 +277,6 @@ class ROIWidget(QWidget):
                     "name": item.name,
                     "shape_type": item.shape_type,
                     "data": item.data.tolist(),
-                    "x": item.x,
-                    "y": item.y,
-                    "width": item.width,
-                    "height": item.height,
                 })
             try:
                 with open(json_path, "w") as f:
