@@ -245,31 +245,48 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
         def shape_type(self) -> str:
             return self._parent._layer.shape_type[self._index]
 
+        def _edge_lengths(self):
+            """Lengths of the first two edges of the 4-corner box, in world units.
+            Rotation-invariant (unlike the axis-aligned width/height)."""
+            c = self._world_data
+            return float(np.linalg.norm(c[1] - c[0])), float(np.linalg.norm(c[2] - c[1]))
+    
+        def _polygon_moments(self):
+            """Area and covariance of the filled polygon (not of its vertices)."""
+            y, x = self._world_data[:, 0], self._world_data[:, 1]
+            x1, y1 = np.roll(x, -1), np.roll(y, -1)
+            cr = x * y1 - x1 * y
+            A = 0.5 * cr.sum()
+            if abs(A) < 1e-12:
+                return 0.0, None
+            cx = ((x + x1) * cr).sum() / (6 * A)
+            cy = ((y + y1) * cr).sum() / (6 * A)
+            Ixx = ((x*x + x*x1 + x1*x1) * cr).sum() / (12 * A) - cx**2
+            Iyy = ((y*y + y*y1 + y1*y1) * cr).sum() / (12 * A) - cy**2
+            Ixy = ((x*y1 + 2*x*y + 2*x1*y1 + x1*y) * cr).sum() / (24 * A) - cx*cy
+            return abs(A), np.array([[Ixx, Ixy], [Ixy, Iyy]])
+
         @property
         def area(self) -> float:
-            stype = self.shape_type
-            w, h = self._world_size
-            if stype == "rectangle":
-                return w * h
-            if stype == "ellipse":
-                return float(np.pi * (w / 2) * (h / 2))
-            if stype == "polygon":
-                y, x = self._world_data[:, 0], self._world_data[:, 1]
-                return float(0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
+            s = self.shape_type
+            if s in ("rectangle", "ellipse"):
+                a, b = self._edge_lengths()
+                return a * b if s == "rectangle" else float(np.pi * a * b / 4)
+            if s == "polygon":
+                return self._polygon_moments()[0]
             return float("nan")
 
         @property
         def perimeter(self) -> float:
-            stype = self.shape_type
-            w, h = self._world_size
-            if stype == "rectangle":
-                return float(2 * (w + h))
-            if stype == "ellipse":
-                a, b = w / 2, h / 2
+            s = self.shape_type
+            if s == "rectangle":
+                a, b = self._edge_lengths()
+                return float(2 * (a + b))
+            if s == "ellipse":
+                a, b = (v / 2 for v in self._edge_lengths())
                 return float(np.pi * (3 * (a + b) - np.sqrt((3 * a + b) * (a + 3 * b))))
-            if stype == "polygon":
-                c = self._world_data
-                c = np.vstack([c, c[0]])
+            if s == "polygon":
+                c = np.vstack([self._world_data, self._world_data[0]])
                 return float(np.linalg.norm(np.diff(c, axis=0), axis=1).sum())
             return float("nan")
 
@@ -279,34 +296,32 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
                 return float(np.linalg.norm(np.diff(self._world_data, axis=0), axis=1).sum())
             return float("nan")
 
+        def _axes(self) -> tuple[float, float]:
+            s = self.shape_type
+            if s in ("rectangle", "ellipse"):
+                a, b = self._edge_lengths()
+                return max(a, b), min(a, b)
+            if s == "polygon":
+                _, cov = self._polygon_moments()
+                if cov is None:
+                    return 0.0, 0.0
+                ev = np.sort(np.clip(np.linalg.eigvalsh(cov), 0, None))
+                return float(4 * np.sqrt(ev[1])), float(4 * np.sqrt(ev[0]))
+            return float("nan"), float("nan")
+
         @property
         def major_axis(self) -> float:
-            stype = self.shape_type
-            if stype in ("rectangle", "ellipse"):
-                return float(max(self._world_size))
-            if stype == "polygon":
-                c = self._world_data - self._world_data.mean(axis=0)
-                evals = np.sort(np.linalg.eigvalsh(np.cov(c, rowvar=False)))
-                return float(4 * np.sqrt(max(evals[-1], 1e-8)))
-            return float("nan")
+            return self._axes()[0]
 
         @property
         def minor_axis(self) -> float:
-            stype = self.shape_type
-            if stype in ("rectangle", "ellipse"):
-                return float(min(self._world_size))
-            if stype == "polygon":
-                c = self._world_data - self._world_data.mean(axis=0)
-                evals = np.sort(np.linalg.eigvalsh(np.cov(c, rowvar=False)))
-                return float(4 * np.sqrt(max(evals[0], 0)))
-            return float("nan")
+            return self._axes()[1]
 
         @property
         def circularity(self) -> float:
-            a = self.area
-            p = self.perimeter
+            a, p = self.area, self.perimeter
             if p > 0 and not np.isnan(a) and not np.isnan(p):
-                return float((4 * np.pi * a) / (p**2))
+                return float(4 * np.pi * a / p**2)
             return float("nan")
 
     def __init__(self, layer: Shapes) -> None:
