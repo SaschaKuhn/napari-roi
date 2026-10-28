@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, MutableSequence, Optional, Sequence
 import json
 import tifffile
 
+import numpy as np
 import pandas as pd
 from napari.layers import Shapes
 from napari.utils.events import Event
@@ -142,6 +143,13 @@ class ROIWidget(QWidget):
         )
         self._save_push_button.clicked.connect(self._on_save_push_button_clicked)
         bottom_save_layout.addWidget(self._save_push_button, 0, 1)
+        self._load_push_button = QPushButton(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
+            "Load ROIs…",
+            parent=self._save_widget,
+        )
+        self._load_push_button.clicked.connect(self._on_load_push_button_clicked)
+        bottom_save_layout.addWidget(self._load_push_button, 0, 2)
         save_widget_layout.addRow(bottom_save_layout)
 
         self._update_layout(False)
@@ -223,6 +231,63 @@ class ROIWidget(QWidget):
                 tifffile.imwrite(str(tiff_path), labels)
             except Exception as e:
                 QMessageBox.warning(self._viewer.window.qt_viewer, "Error", f"Could not save label image TIFF:\n{e}")
+
+    def load_rois_json(self, json_path: Path) -> None:
+        assert self._roi_layer is not None
+        assert self._roi_layer_accessor is not None
+        layer = self._roi_layer
+        accessor = self._roi_layer_accessor
+        valid_types = {"rectangle", "ellipse", "line", "path", "polygon"}
+
+        # ---- read and validate everything first, so a bad file changes nothing
+        try:
+            with open(json_path) as f:
+                entries = json.load(f)
+            datas, types, names = [], [], []
+            taken = {roi.name for roi in accessor}
+            for e in entries:
+                arr = np.asarray(e["data"], dtype=float)
+                shape_type = e["shape_type"]
+                if shape_type not in valid_types:
+                    raise ValueError(f"Unknown shape type: {shape_type!r}")
+                if arr.ndim != 2 or arr.shape[1] != layer.ndim:
+                    raise ValueError(
+                        f"ROI {e.get('name')!r} has {arr.shape[-1]}D coordinates, "
+                        f"but the layer is {layer.ndim}D."
+                    )
+                # keep names unique: Name -> Name_01, Name_02, ...
+                name = str(e.get("name", "")).strip() or "ROI"
+                if name in taken:
+                    stem = re.sub(r"_\d+$", "", name)
+                    n = 1
+                    while f"{stem}_{n:02d}" in taken:
+                        n += 1
+                    name = f"{stem}_{n:02d}"
+                taken.add(name)
+                datas.append(arr)
+                types.append(shape_type)
+                names.append(name)
+        except Exception as e:
+            QMessageBox.warning(
+                self._viewer.window.qt_viewer, "Error", f"Could not load ROIs:\n{e}"
+            )
+            return
+        if not datas:
+            return
+
+        # ---- add shapes; suppress autosave until names are set
+        was_initialized = self._initialized
+        self._initialized = False
+        try:
+            n_before = len(layer.data)
+            layer.add(datas, shape_type=types)
+            for i, name in enumerate(names):
+                accessor[n_before + i].name = name
+        finally:
+            self._initialized = was_initialized
+        self._refresh_roi_table_widget()
+        if self._initialized and self.autosave_roi_file:
+            self.save_roi_file()
 
     def get_rois(self) -> MutableSequence[ROIBase]:
         assert self._roi_layer_accessor is not None
@@ -323,6 +388,18 @@ class ROIWidget(QWidget):
 
     def _on_save_push_button_clicked(self, checked: bool) -> None:
         self.save_roi_file()
+    
+    def _on_load_push_button_clicked(self, checked: bool) -> None:
+        start_dir = (
+            str(self.roi_dir)
+            if self.roi_dir and self.roi_dir.is_dir()
+            else str(Path.home())
+        )
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load ROIs (JSON)", start_dir, "ROI files (*.json)"
+        )
+        if path:
+            self.load_rois_json(Path(path))
     
     def _on_roi_dir_line_edit_text_changed(self, text: str) -> None:
         self.roi_dir = Path(text) if text.strip() else None

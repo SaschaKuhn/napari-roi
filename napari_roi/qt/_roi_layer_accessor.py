@@ -54,8 +54,9 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
                 ),
                 ignore_index=True,
             )  # move appended row to desired index
-            layer_features[ROILayerAccessor.ROI_NAME_FEATURES_KEY].iloc[
-                self._index
+            layer_features.iloc[
+                self._index,
+                layer_features.columns.get_loc(ROILayerAccessor.ROI_NAME_FEATURES_KEY),
             ] = roi.name
             self._parent._layer.features = layer_features
 
@@ -115,9 +116,13 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
 
         @features.setter
         def features(self, features: pd.Series) -> None:
-            layer_features = features_to_pandas_dataframe(self._parent._layer.features)
-            layer_features = layer_features.copy()
-            layer_features.iloc[self._index] = features
+            layer_features = features_to_pandas_dataframe(
+                self._parent._layer.features
+            ).copy()
+            for key, value in features.items():
+                layer_features.iloc[
+                    self._index, layer_features.columns.get_loc(key)
+                ] = value
             self._parent._layer.features = layer_features
 
         @property
