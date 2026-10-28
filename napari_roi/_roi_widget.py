@@ -63,21 +63,6 @@ class ROIWidget(QWidget):
             self._on_new_roi_name_line_edit_text_changed
         )
         add_widget_layout.addRow("Name:", self._new_roi_name_line_edit)
-        # self._new_roi_width_double_spin_box = QDoubleSpinBox(parent=self._add_widget)
-        # self._new_roi_width_double_spin_box.setRange(0.0, float("inf"))
-        # self._new_roi_width_double_spin_box.valueChanged.connect(
-        #     self._on_new_roi_width_double_spin_box_value_changed
-        # )
-        # add_widget_layout.addRow("Width:", self._new_roi_width_double_spin_box)
-        # self._new_roi_height_double_spin_box = QDoubleSpinBox(parent=self._add_widget)
-        # self._new_roi_height_double_spin_box.setRange(0.0, float("inf"))
-        # self._new_roi_height_double_spin_box.valueChanged.connect(
-        #     self._on_new_roi_height_double_spin_box_value_changed
-        # )
-        # add_widget_layout.addRow("Height:", self._new_roi_height_double_spin_box)
-        # self._add_roi_push_button = QPushButton("Add ROI", parent=self._add_widget)
-        # self._add_roi_push_button.clicked.connect(self._on_add_roi_push_button_clicked)
-        # add_widget_layout.addRow(self._add_roi_push_button)
 
         self._roi_table_widget = QWidget(parent=self)
         roi_table_widget_layout = QFormLayout()
@@ -111,31 +96,6 @@ class ROIWidget(QWidget):
             self._on_roi_origin_combo_box_current_text_changed
         )
         roi_table_widget_layout.addRow("X/Y origin:", self._roi_origin_combo_box)
-
-        # self._save_widget = QWidget(parent=self)
-        # save_widget_layout = QGridLayout()
-        # self._save_widget.setLayout(save_widget_layout)
-        # self._roi_file_line_edit = QLineEdit(parent=self)
-        # self._roi_file_line_edit.setReadOnly(True)
-        # self._roi_file_line_edit.addAction(
-        #     self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
-        #     QLineEdit.ActionPosition.TrailingPosition,
-        # ).triggered.connect(self._on_roi_file_line_edit_browse_action_triggered)
-        # save_widget_layout.addWidget(self._roi_file_line_edit, 0, 0, 1, 2)
-        # self._autosave_roi_file_check_box = QCheckBox(
-        #     "Autosave", parent=self._save_widget
-        # )
-        # self._autosave_roi_file_check_box.stateChanged.connect(
-        #     self._on_autosave_roi_file_check_box_state_changed
-        # )
-        # save_widget_layout.addWidget(self._autosave_roi_file_check_box, 1, 0, 1, 1)
-        # self._save_push_button = QPushButton(
-        #     self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
-        #     "Save",
-        #     parent=self._save_widget,
-        # )
-        # self._save_push_button.clicked.connect(self._on_save_push_button_clicked)
-        # save_widget_layout.addWidget(self._save_push_button, 1, 1, 1, 1)
         self._save_widget = QWidget(parent=self)
         save_widget_layout = QFormLayout()
         self._save_widget.setLayout(save_widget_layout)
@@ -202,35 +162,6 @@ class ROIWidget(QWidget):
             if isinstance(parent, QDockWidget):
                 parent.dockLocationChanged.connect(self._on_dock_location_changed)
         return super(ROIWidget, self).eventFilter(obj, event)
-
-    # def load_roi_file(self) -> None:
-    #     assert self._roi_layer_accessor is not None
-    #     assert self.roi_file is not None
-    #     df = None
-    #     try:
-    #         df = pd.read_csv(self.roi_file)
-    #     except Exception as e:
-    #         QMessageBox.warning(self._viewer.window.qt_viewer, "Error", e)
-    #     if df is not None:
-    #         assert self._roi_layer is not None
-    #         with self._roi_layer.events.blocker_all():
-    #             for i, row in df.iterrows():
-    #                 roi = ROI(
-    #                     name=row["Name"],
-    #                     x=row["X"],
-    #                     y=row["Y"],
-    #                     width=row["W"],
-    #                     height=row["H"],
-    #                     area=row['Area'],
-    #                     perimeter=row["Perimeter"],
-    #                     length=row["Length"],
-    #                     major_axis=row["Major_Axis"],
-    #                     minor_axis=row["Minor_Axis"],
-    #                     circularity=row["Circularity"]
-    #                 )
-    #                 self._roi_layer_accessor.append(roi)
-    #         self._roi_layer.refresh()
-    #         self._refresh_roi_table_widget()
 
     def save_roi_file(self) -> None:
         assert self._roi_layer_accessor is not None
@@ -355,27 +286,6 @@ class ROIWidget(QWidget):
     def _on_new_roi_name_line_edit_text_changed(self, text: str) -> None:
         self.new_roi_name = text
 
-    # def _on_new_roi_width_double_spin_box_value_changed(self, value: float) -> None:
-    #     self.new_roi_width = value
-
-    # def _on_new_roi_height_double_spin_box_value_changed(self, value: float) -> None:
-    #     self.new_roi_height = value
-
-    # def _on_add_roi_push_button_clicked(self) -> None:
-    #     assert self.new_roi_width is not None
-    #     assert self.new_roi_height is not None
-    #     assert self._roi_layer_accessor is not None
-    #     cy, cx = self._viewer.camera.center[-2:]
-    #     roi = ROI(
-    #         name=self._create_roi_name(),
-    #         x=cx - self.new_roi_width / 2.0,
-    #         y=cy - self.new_roi_height / 2.0,
-    #         width=self.new_roi_width,
-    #         height=self.new_roi_height,
-    #     )
-    #     self._roi_layer_accessor.append(roi)
-    #     self._refresh_roi_table_widget()
-
     def _on_roi_table_view_selection_changed(
         self, selected: QItemSelection, deselected: QItemSelection
     ) -> None:
@@ -402,38 +312,6 @@ class ROIWidget(QWidget):
         self._refresh_roi_table_widget()
         if self._initialized and self.autosave_roi_file:
             self.save_roi_file()
-
-    # def _on_roi_file_line_edit_browse_action_triggered(self, checked: bool) -> None:
-    #     file_dialog = QFileDialog(
-    #         parent=self,
-    #         caption="Save ROI coordinates as",
-    #         filter="Comma-separated values files (*.csv)",
-    #     )
-    #     if self.roi_file is not None:
-    #         if self.roi_file.parent.is_dir():
-    #             file_dialog.setDirectory(str(self.roi_file.parent))
-    #         if self.roi_file.is_file():
-    #             file_dialog.selectFile(str(self.roi_file))
-    #     else:
-    #         file_dialog.setDirectory(str(Path.home()))
-    #     if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
-    #         path = Path(file_dialog.selectedFiles()[0])
-    #         if path.suffix.lower() != ".csv":
-    #             path = path.with_name(path.name + ".csv")
-    #         self.roi_file = path
-    #         self._refresh_save_widget()
-    #         if self.roi_file.is_file():
-    #             answer = QMessageBox.question(
-    #                 self,
-    #                 "Load existing ROIs",
-    #                 "Do you want to load existing ROIs and add them to the current"
-    #                 " layer, applying the currently selected X/Y origin?",
-    #                 buttons=QMessageBox.StandardButton.No
-    #                 | QMessageBox.StandardButton.Yes,
-    #                 defaultButton=QMessageBox.StandardButton.No,
-    #             )
-    #             if answer == QMessageBox.StandardButton.Yes:
-    #                 self.load_roi_file()
 
     def _on_autosave_roi_file_check_box_state_changed(
         self, state: int
@@ -537,10 +415,6 @@ class ROIWidget(QWidget):
         if self._roi_layer_accessor is not None:
             with QSignalBlocker(self._new_roi_name_line_edit):
                 self._new_roi_name_line_edit.setText(self.new_roi_name)
-            # with QSignalBlocker(self._new_roi_width_double_spin_box):
-            #     self._new_roi_width_double_spin_box.setValue(self.new_roi_width)
-            # with QSignalBlocker(self._new_roi_height_double_spin_box):
-            #     self._new_roi_height_double_spin_box.setValue(self.new_roi_height)
 
     def _refresh_roi_table_widget(
         self, row_indices: Optional[Sequence[int]] = None
@@ -626,30 +500,6 @@ class ROIWidget(QWidget):
         self._roi_layer_accessor.new_roi_name = new_roi_name
         self._new_roi_name_line_edit.setText(new_roi_name)
 
-    # @property
-    # def new_roi_width(self) -> Optional[float]:
-    #     if self._roi_layer_accessor is not None:
-    #         return self._roi_layer_accessor.new_roi_width
-    #     return None
-
-    # @new_roi_width.setter
-    # def new_roi_width(self, new_roi_width: float) -> None:
-    #     assert self._roi_layer_accessor is not None
-    #     self._roi_layer_accessor.new_roi_width = new_roi_width
-    #     self._new_roi_width_double_spin_box.setValue(new_roi_width)
-
-    # @property
-    # def new_roi_height(self) -> Optional[float]:
-    #     if self._roi_layer_accessor is not None:
-    #         return self._roi_layer_accessor.new_roi_height
-    #     return None
-
-    # @new_roi_height.setter
-    # def new_roi_height(self, new_roi_height: float) -> None:
-    #     assert self._roi_layer_accessor is not None
-    #     self._roi_layer_accessor.new_roi_height = new_roi_height
-    #     self._new_roi_height_double_spin_box.setValue(new_roi_height)
-
     @property
     def roi_origin(self) -> Optional[ROIOrigin]:
         if self._roi_layer_accessor is not None:
@@ -661,20 +511,6 @@ class ROIWidget(QWidget):
         assert self._roi_layer_accessor is not None
         self._roi_layer_accessor.roi_origin = roi_origin
         self._roi_origin_combo_box.setCurrentText(str(roi_origin))
-
-    # @property
-    # def roi_file(self) -> Optional[Path]:
-    #     if self._roi_layer_accessor is not None:
-    #         return self._roi_layer_accessor.roi_file
-    #     return None
-
-    # @roi_file.setter
-    # def roi_file(self, roi_file: Optional[Path]) -> None:
-    #     assert self._roi_layer_accessor is not None
-    #     self._roi_layer_accessor.roi_file = roi_file
-    #     self._roi_file_line_edit.setText(
-    #         str(roi_file) if roi_file is not None else None
-    #     )
 
     @property
     def autosave_roi_file(self) -> bool:

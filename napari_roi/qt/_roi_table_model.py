@@ -101,17 +101,6 @@ class ROITableModel(QAbstractTableModel):
                 flags |= Qt.ItemFlag.ItemIsEditable
             return flags
 
-    # def insertRows(
-    #     self, row: int, count: int, parent: QModelIndex = QModelIndex()
-    # ) -> bool:
-    #     if 0 <= row <= self.rowCount() and count > 0 and not parent.isValid():
-    #         self.beginInsertRows(parent, row, row + count - 1)
-    #         for i in range(row, row + count):
-    #             self._rois.insert(i, ROI())
-    #         self.endInsertRows()
-    #         return True
-    #     return False
-
     def removeRows(
         self, row: int, count: int, parent: QModelIndex = QModelIndex()
     ) -> bool:
