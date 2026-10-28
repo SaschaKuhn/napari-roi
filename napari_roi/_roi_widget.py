@@ -589,21 +589,22 @@ class ROIWidget(QWidget):
         desired_roi_name = self.new_roi_name
         assert self._roi_layer_accessor is not None
         existing_roi_names = [roi.name for roi in self._roi_layer_accessor]
-        existing_roi_numbers = []
-        regex = re.compile(rf"{desired_roi_name} \((?P<roi_number>\d+)\)")
-        for existing_roi_name in existing_roi_names:
-            m = regex.fullmatch(existing_roi_name)
-            if m is not None:
-                existing_roi_numbers.append(int(m.group("roi_number")))
-        if (
-            desired_roi_name not in existing_roi_names
-            and len(existing_roi_numbers) == 0
-        ):
+
+        # Name not used yet -> take it as typed
+        if desired_roi_name not in existing_roi_names:
             return desired_roi_name
-        roi_number = 2
-        if len(existing_roi_numbers) > 0:
-            roi_number = max(existing_roi_numbers) + 1
-        return f"{desired_roi_name} ({roi_number})"
+
+        # If the typed name already ends in _<digits>, count on from that stem
+        m = re.fullmatch(r"(?P<stem>.*?)_(?P<num>\d+)", desired_roi_name)
+        stem = m.group("stem") if m else desired_roi_name
+
+        regex = re.compile(rf"{re.escape(stem)}_(?P<n>\d+)")
+        numbers = [
+            int(mm.group("n"))
+            for name in existing_roi_names
+            if (mm := regex.fullmatch(name))
+        ]
+        return f"{stem}_{max(numbers, default=0) + 1:02d}"
 
     @property
     def viewer(self) -> Viewer:
