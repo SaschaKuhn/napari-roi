@@ -264,7 +264,7 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
             Ixx = ((x*x + x*x1 + x1*x1) * cr).sum() / (12 * A) - cx**2
             Iyy = ((y*y + y*y1 + y1*y1) * cr).sum() / (12 * A) - cy**2
             Ixy = ((x*y1 + 2*x*y + 2*x1*y1 + x1*y) * cr).sum() / (24 * A) - cx*cy
-            return abs(A), np.array([[Ixx, Ixy], [Ixy, Iyy]])
+            return float(abs(A)), np.array([[Ixx, Ixy], [Ixy, Iyy]])
 
         @property
         def area(self) -> float:
@@ -273,7 +273,7 @@ class ROILayerAccessor(MutableSequence[ROIBase]):
                 a, b = self._edge_lengths()
                 return a * b if s == "rectangle" else float(np.pi * a * b / 4)
             if s == "polygon":
-                return self._polygon_moments()[0]
+                return float(self._polygon_moments()[0])
             return float("nan")
 
         @property
