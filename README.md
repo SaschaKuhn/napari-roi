@@ -38,12 +38,9 @@ CSV files saved using *napari-roi* adhere to the following format:
 | Columns | Description |
 | --- | --- |
 | `Name` | ROI name |
-| `X`, `Y` | Position (X/Y origin) |
-| `W`, `H` | Size (width/height) |
 | `Area`| Area |
 | `Perimeter` | Perimeter |
 | `Length` | Length (only for Line/Path ROIs) |
-| `W`, `H` | Size (width/height) |
 | `Major Axis`, `Minor Axis` | Major and minor axis |
 | `Circularity` | Circularity |
 
